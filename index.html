@@ -51,7 +51,7 @@ if(!data){board.textContent='Puzzle data is missing. Please check data.js.';retu
 const N=data.grid.length, found=new Set(),cells=[],labels={};
 const clean=s=>s.toUpperCase().replace(/[^A-Z]/g,'');
 for(let r=0;r<N;r++)for(let c=0;c<N;c++){const el=document.createElement('div');el.className='cell';el.textContent=data.grid[r][c];el.dataset.r=r;el.dataset.c=c;board.appendChild(el);cells.push(el)}
-for(const word of data.words){const el=document.createElement('div');el.className='word';el.textContent=word;list.appendChild(el);labels[clean(word)]=el}
+for(const word of [...data.words].sort((a,b)=>a.localeCompare(b))){const el=document.createElement('div');el.className='word';el.textContent=word;list.appendChild(el);labels[clean(word)]=el}
 const at=([r,c])=>cells[r*N+c];let start=null, preview=[],dragging=false,tapStart=null;
 function clearPreview(){for(const pos of preview)at(pos).classList.remove('preview');preview=[]}
 function line(a,b){const dr=b[0]-a[0],dc=b[1]-a[1];if(!(dr===0||dc===0||Math.abs(dr)===Math.abs(dc)))return [];
