@@ -46,7 +46,18 @@ function line(a,b){const dr=b[0]-a[0],dc=b[1]-a[1];if(!(dr===0||dc===0||Math.abs
 const sr=Math.sign(dr),sc=Math.sign(dc),len=Math.max(Math.abs(dr),Math.abs(dc))+1;
 return Array.from({length:len},(_,i)=>[a[0]+i*sr,a[1]+i*sc])}
 function update(end){clearPreview();if(!start)return;preview=line(start,end);for(const pos of preview)at(pos).classList.add('preview')}
-function locate(e){const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell');return el&&board.contains(el)?[+el.dataset.r,+el.dataset.c]:null}
+function locate(e){
+const rect=board.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+if(x<0||y<0||x>rect.width||y>rect.height)return null;
+const style=getComputedStyle(board);
+const left=parseFloat(style.borderLeftWidth)+parseFloat(style.paddingLeft);
+const right=parseFloat(style.borderRightWidth)+parseFloat(style.paddingRight);
+const top=parseFloat(style.borderTopWidth)+parseFloat(style.paddingTop);
+const bottom=parseFloat(style.borderBottomWidth)+parseFloat(style.paddingBottom);
+const innerW=rect.width-left-right,innerH=rect.height-top-bottom;
+const c=Math.floor((x-left)/innerW*N),r=Math.floor((y-top)/innerH*N);
+return r>=0&&r<N&&c>=0&&c<N?[r,c]:null
+}
 function equal(a,b){return a[0]===b[0]&&a[1]===b[1]}
 function recognize(a,b){if(!a||!b)return false;
 for(const [key,coords] of Object.entries(data.placements)){if(found.has(key))continue;
