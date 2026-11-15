@@ -30,7 +30,7 @@ h1{font-family:"Playfair Display",Georgia,serif;font-size:clamp(29px,8vw,40px);m
 <div id="board" class="board" aria-label="15 by 15 word search puzzle"></div>
 <section class="words"><h2>Find these 15 words</h2><div class="wordlist" id="wordlist"></div></section>
 <div id="success" class="success" role="status">You found them all! Thanks for playing The Townie's Word Search.</div>
-<p class="note">Drag from the first letter to the last letter of a word. Spaces are omitted in the grid.</p>
+<p class="note">Drag across a word, or tap its first and last letters. Spaces are omitted in the grid.</p>
 <footer>THE TOWNIE · ST. JOHN'S, NL</footer>
 </main><script src="data.js"></script><script>
 (()=>{'use strict';
@@ -40,23 +40,36 @@ const N=data.grid.length, found=new Set(),cells=[],labels={};
 const clean=s=>s.toUpperCase().replace(/[^A-Z]/g,'');
 for(let r=0;r<N;r++)for(let c=0;c<N;c++){const el=document.createElement('div');el.className='cell';el.textContent=data.grid[r][c];el.dataset.r=r;el.dataset.c=c;board.appendChild(el);cells.push(el)}
 for(const word of data.words){const el=document.createElement('div');el.className='word';el.textContent=word;list.appendChild(el);labels[clean(word)]=el}
-const at=([r,c])=>cells[r*N+c];let start=null, preview=[],dragging=false;
+const at=([r,c])=>cells[r*N+c];let start=null, preview=[],dragging=false,tapStart=null;
 function clearPreview(){for(const pos of preview)at(pos).classList.remove('preview');preview=[]}
 function line(a,b){const dr=b[0]-a[0],dc=b[1]-a[1];if(!(dr===0||dc===0||Math.abs(dr)===Math.abs(dc)))return [];
 const sr=Math.sign(dr),sc=Math.sign(dc),len=Math.max(Math.abs(dr),Math.abs(dc))+1;
 return Array.from({length:len},(_,i)=>[a[0]+i*sr,a[1]+i*sc])}
 function update(end){clearPreview();if(!start)return;preview=line(start,end);for(const pos of preview)at(pos).classList.add('preview')}
 function locate(e){const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell');return el&&board.contains(el)?[+el.dataset.r,+el.dataset.c]:null}
-function finish(){if(!dragging)return;dragging=false;const chosen=preview.map(at),selected=chosen.map(el=>el.textContent).join(''),reverse=selected.split('').reverse().join('');
-let match=null;for(const [key,coords] of Object.entries(data.placements)){if(found.has(key))continue;
-const same=coords.length===preview.length&&coords.every((p,i)=>p[0]===preview[i][0]&&p[1]===preview[i][1]);
-const opposite=coords.length===preview.length&&coords.every((p,i)=>p[0]===preview[preview.length-1-i][0]&&p[1]===preview[preview.length-1-i][1]);
-if((same||opposite)&&(selected===key||reverse===key)){match=key;break}}
-clearPreview();start=null;if(match){found.add(match);for(const pos of data.placements[match])at(pos).classList.add('found');labels[match].classList.add('done');progress.textContent=`${found.size} of ${data.words.length} found`;if(found.size===data.words.length)success.classList.add('visible')}}
-board.addEventListener('pointerdown',e=>{const pos=locate(e);if(!pos)return;e.preventDefault();dragging=true;start=pos;update(pos);board.setPointerCapture(e.pointerId)});
-board.addEventListener('pointermove',e=>{if(!dragging)return;e.preventDefault();const pos=locate(e);if(pos)update(pos)});
-board.addEventListener('pointerup',e=>{if(dragging){const pos=locate(e);if(pos)update(pos);finish()}});
-board.addEventListener('pointercancel',()=>{clearPreview();start=null;dragging=false});
-document.getElementById('reset').addEventListener('click',()=>{found.clear();clearPreview();start=null;dragging=false;cells.forEach(el=>el.classList.remove('found'));Object.values(labels).forEach(el=>el.classList.remove('done'));progress.textContent=`0 of ${data.words.length} found`;success.classList.remove('visible')});
+function equal(a,b){return a[0]===b[0]&&a[1]===b[1]}
+function recognize(a,b){if(!a||!b)return false;
+for(const [key,coords] of Object.entries(data.placements)){if(found.has(key))continue;
+const first=coords[0],last=coords[coords.length-1];
+if((equal(a,first)&&equal(b,last))||(equal(a,last)&&equal(b,first))){
+found.add(key);for(const pos of coords)at(pos).classList.add('found');labels[key].classList.add('done');
+progress.textContent=`${found.size} of ${data.words.length} found`;
+if(found.size===data.words.length)success.classList.add('visible');return true}}
+return false}
+function nearEndpoint(a,b){if(!a||!b)return null;
+for(const [key,coords] of Object.entries(data.placements)){if(found.has(key))continue;
+const first=coords[0],last=coords[coords.length-1];
+if(equal(a,first)&&Math.max(Math.abs(b[0]-last[0]),Math.abs(b[1]-last[1]))<=1)return last;
+if(equal(a,last)&&Math.max(Math.abs(b[0]-first[0]),Math.abs(b[1]-first[1]))<=1)return first}
+return b}
+let moved=false;
+board.addEventListener('pointerdown',e=>{const pos=locate(e);if(!pos)return;e.preventDefault();dragging=true;moved=false;start=pos;update(pos);board.setPointerCapture(e.pointerId)});
+board.addEventListener('pointermove',e=>{if(!dragging)return;e.preventDefault();const pos=locate(e);if(pos){if(!equal(pos,start))moved=true;update(pos)}});
+board.addEventListener('pointerup',e=>{if(!dragging)return;e.preventDefault();dragging=false;
+const pos=locate(e)||preview[preview.length-1]||start;
+if(moved){const target=nearEndpoint(start,pos);clearPreview();recognize(start,target);tapStart=null;start=null}
+else{clearPreview();if(tapStart){if(!recognize(tapStart,pos)){tapStart=pos;start=pos;update(pos)}else{tapStart=null;start=null}}else{tapStart=pos;start=pos;update(pos)}}});
+board.addEventListener('pointercancel',()=>{clearPreview();start=null;dragging=false;tapStart=null});
+document.getElementById('reset').addEventListener('click',()=>{found.clear();clearPreview();start=null;tapStart=null;dragging=false;cells.forEach(el=>el.classList.remove('found'));Object.values(labels).forEach(el=>el.classList.remove('done'));progress.textContent=`0 of ${data.words.length} found`;success.classList.remove('visible')});
 })();
 </script></body></html>
